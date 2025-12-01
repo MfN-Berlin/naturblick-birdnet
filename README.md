@@ -3,4 +3,4 @@ This is a simple HTTP wrapper around BirdNET to allow it to be run inside a dock
 
 ## Usage
 
-`GET /?src=<soundfile URL>&segmentStart=<start in milliseconds>&segmentEnd=<end in milliseconds>`
+`GET /?url=<soundfile URL>&start=<start in milliseconds>&end=<end in milliseconds>`
