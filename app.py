@@ -15,7 +15,8 @@ SR = 32000
 
 # Create device and load model
 device = torch.device("cpu")
-model = torch.jit.load("BirdNET+_V3.0-preview2_EUNA_1K_FP32.pt", map_location=device)
+model_version = "BirdNET+_V3.0-preview2_EUNA_1K_FP32"
+model = torch.jit.load(f"{model_version}.pt", map_location=device)
 model.eval()
 
 # Load labels
@@ -36,7 +37,6 @@ def download_audio(url):
 
 def decode_audio(encoded, start, end):
     return librosa.load(encoded, sr=SR, mono=True, offset=float(start) / 1000.0, duration = float(end - start) / 1000.0)[0]
-
 
 def run_inference(audio):
     chunks = np.stack([audio], axis=0)
@@ -59,7 +59,7 @@ def app(environ, start_response):
     finish_time = time.perf_counter()
     logger.info(f"URL: {url} start: {start} end: {end} download: {decode_time - download_time:.3f}s decode: {model_time - decode_time:.3f}s model: {finish_time - model_time:.3f}s")
     results_with_labels = sorted(zip(labels, result), key = lambda r: r[1], reverse = True)
-    data = json.dumps([{"id": id, "score": e} for id, e in results_with_labels[:3]]).encode("UTF-8")
+    data = json.dumps({"version": model_version, "results": [{"id": id, "score": e} for id, e in results_with_labels[:3]]}).encode("UTF-8")
     response_headers = [
         ('Content-type', 'application/json'),
         ('Content-Length', str(len(data)))
