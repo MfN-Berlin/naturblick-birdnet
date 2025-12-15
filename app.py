@@ -35,7 +35,7 @@ logger.info(f"Finished warm-up: {time.perf_counter() - warmup_time}")
 def download_audio(url):
     logger.info(f"Downloading {url}")
     response = request.urlopen(url)
-    logger.info(f"Downloading {response.status response.msg}")
+    logger.info(f"Downloading {response.status} {response.msg}")
     return io.BytesIO(response.read())
 
 def decode_audio(encoded, start, end):
