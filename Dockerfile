@@ -8,6 +8,8 @@ ADD https://zenodo.org/records/17631020/files/BirdNET+_V3.0-preview2_EUNA_1K_Lab
 
 ADD https://naturblick.museumfuernaturkunde.berlin/media/audio_files/amphibian_d52fd27a_06b4d9c428.mp3 /app/
 
+RUN apt update && apt install -y ffmpeg
+
 COPY requirements.txt /app/
 
 RUN pip install --no-cache-dir -r requirements.txt
