@@ -64,7 +64,7 @@ def app(environ, start_response):
         finish_time = time.perf_counter()
         logger.info(f"URL: {url} start: {start} end: {end} download: {load_time - download_time:.3f}s load: {model_time - load_time:.3f}s model: {finish_time - model_time:.3f}s total: {finish_time - download_time:.3f}s")
         results_with_labels = sorted(zip(labels, result), key = lambda r: r[1], reverse = True)
-        data = json.dumps({"version": model_version, "results": [{"id": id, "score": e} for id, e in results_with_labels[:3]]}).encode("UTF-8")
+        data = json.dumps({"version": model_version, "results": [{"id": id, "score": e} for id, e in results_with_labels[:10]]}).encode("UTF-8")
         response_headers = [
             ('Content-type', 'application/json'),
             ('Content-Length', str(len(data)))
