@@ -6,7 +6,8 @@ from urllib import parse
 import csv
 import json
 import numpy as np
-import subprocess
+import shutil
+import tempfile
 import time
 import logging
 
@@ -33,16 +34,13 @@ warmup_time = time.perf_counter()
 librosa.load("amphibian_d52fd27a_06b4d9c428.mp3")
 logger.info(f"Finished warm-up: {time.perf_counter() - warmup_time}")
 
-def download_audio(url):
+def download_audio(url, f):
     response = request.urlopen(url)
-    return response.read()
+    shutil.copyfileobj(response, f)
+    f.close()
 
-def decode_to_wav(encoded):
-    p = subprocess.Popen(["ffmpeg", "-i", "-", "-f", "wav", "-"], stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-    return io.BytesIO(p.communicate(encoded)[0])
-
-def load_audio(decoded, start, end):
-    return librosa.load(decoded, sr=SR, mono=True, offset=float(start) / 1000.0, duration = float(end - start) / 1000.0)[0]
+def load_audio(name, start, end):
+    return librosa.load(name, sr=SR, mono=True, offset=float(start) / 1000.0, duration = float(end - start) / 1000.0)[0]
 
 def run_inference(audio):
     chunks = np.stack([audio], axis=0)
@@ -56,21 +54,20 @@ def app(environ, start_response):
     start = int(params["start"])
     end = int(params["end"])
     url = params["url"]
-    download_time = time.perf_counter()
-    encoded = download_audio(url)
-    decode_time = time.perf_counter()
-    decoded = decode_to_wav(encoded)
-    load_time = time.perf_counter()
-    loaded = load_audio(decoded, start, end)
-    model_time = time.perf_counter()
-    result = run_inference(loaded)
-    finish_time = time.perf_counter()
-    logger.info(f"URL: {url} start: {start} end: {end} download: {decode_time - download_time:.3f}s decode: {load_time - decode_time:.3f}s load: {model_time - load_time:.3f}s model: {finish_time - model_time:.3f}s total: {finish_time - download_time:.3f}s")
-    results_with_labels = sorted(zip(labels, result), key = lambda r: r[1], reverse = True)
-    data = json.dumps({"version": model_version, "results": [{"id": id, "score": e} for id, e in results_with_labels[:3]]}).encode("UTF-8")
-    response_headers = [
-        ('Content-type', 'application/json'),
-        ('Content-Length', str(len(data)))
-    ]
-    start_response(status, response_headers)
-    return iter([data])
+    with tempfile.NamedTemporaryFile(delete_on_close = False) as f:
+        download_time = time.perf_counter()
+        encoded = download_audio(url, f)
+        load_time = time.perf_counter()
+        loaded = load_audio(f.name, start, end)
+        model_time = time.perf_counter()
+        result = run_inference(loaded)
+        finish_time = time.perf_counter()
+        logger.info(f"URL: {url} start: {start} end: {end} download: {load_time - download_time:.3f}s load: {model_time - load_time:.3f}s model: {finish_time - model_time:.3f}s total: {finish_time - download_time:.3f}s")
+        results_with_labels = sorted(zip(labels, result), key = lambda r: r[1], reverse = True)
+        data = json.dumps({"version": model_version, "results": [{"id": id, "score": e} for id, e in results_with_labels[:3]]}).encode("UTF-8")
+        response_headers = [
+            ('Content-type', 'application/json'),
+            ('Content-Length', str(len(data)))
+        ]
+        start_response(status, response_headers)
+        return iter([data])
