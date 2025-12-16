@@ -6,6 +6,7 @@ from urllib import parse
 import csv
 import json
 import numpy as np
+import subprocess
 import time
 import logging
 
@@ -33,13 +34,15 @@ librosa.load("amphibian_d52fd27a_06b4d9c428.mp3")
 logger.info(f"Finished warm-up: {time.perf_counter() - warmup_time}")
 
 def download_audio(url):
-    logger.info(f"Downloading {url}")
     response = request.urlopen(url)
-    logger.info(f"Downloading {response.status} {response.msg}")
-    return io.BytesIO(response.read())
+    return response.read()
 
-def decode_audio(encoded, start, end):
-    return librosa.load(encoded, sr=SR, mono=True, offset=float(start) / 1000.0, duration = float(end - start) / 1000.0)[0]
+def decode_to_wav(encoded):
+    p = subprocess.Popen(["ffmpeg", "-i", "-", "-f", "wav", "-"], stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+    return io.BytesIO(p.communicate(encoded)[0])
+
+def load_audio(decoded, start, end):
+    return librosa.load(decoded, sr=SR, mono=True, offset=float(start) / 1000.0, duration = float(end - start) / 1000.0)[0]
 
 def run_inference(audio):
     chunks = np.stack([audio], axis=0)
@@ -56,11 +59,13 @@ def app(environ, start_response):
     download_time = time.perf_counter()
     encoded = download_audio(url)
     decode_time = time.perf_counter()
-    decoded = decode_audio(encoded, start, end)
+    decoded = decode_to_wav(encoded)
+    load_time = time.perf_counter()
+    loaded = load_audio(decoded, start, end)
     model_time = time.perf_counter()
-    result = run_inference(decoded)
+    result = run_inference(loaded)
     finish_time = time.perf_counter()
-    logger.info(f"URL: {url} start: {start} end: {end} download: {decode_time - download_time:.3f}s decode: {model_time - decode_time:.3f}s model: {finish_time - model_time:.3f}s")
+    logger.info(f"URL: {url} start: {start} end: {end} download: {decode_time - download_time:.3f}s decode: {load_time - decode_time:.3f}s load: {model_time - load_time:.3f}s model: {finish_time - model_time:.3f}s total: {finish_time - download_time:.3f}s")
     results_with_labels = sorted(zip(labels, result), key = lambda r: r[1], reverse = True)
     data = json.dumps({"version": model_version, "results": [{"id": id, "score": e} for id, e in results_with_labels[:3]]}).encode("UTF-8")
     response_headers = [
