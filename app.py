@@ -35,9 +35,9 @@ librosa.load("amphibian_d52fd27a_06b4d9c428.mp3")
 logger.info(f"Finished warm-up: {time.perf_counter() - warmup_time}")
 
 def download_audio(url, f):
-    response = request.urlopen(url)
-    shutil.copyfileobj(response, f)
-    f.close()
+    with request.urlopen(url) as response:
+        shutil.copyfileobj(response, f)
+        f.close()
 
 def load_audio(name, start, end):
     return librosa.load(name, sr=SR, mono=True, offset=float(start) / 1000.0, duration = float(end - start) / 1000.0)[0]
