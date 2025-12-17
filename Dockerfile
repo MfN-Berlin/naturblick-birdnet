@@ -10,7 +10,9 @@ ADD https://naturblick.museumfuernaturkunde.berlin/media/audio_files/amphibian_d
 
 COPY requirements.txt /app/
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY install.sh /app/
+
+RUN ./install.sh
 
 COPY . /app/
 
